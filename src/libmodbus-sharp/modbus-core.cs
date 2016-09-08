@@ -6,11 +6,15 @@ namespace libmodbussharp
 {
 	[StructLayout(LayoutKind.Sequential)]
 	public unsafe struct MODBUS_MAPPING {
-	    public int nb_bits;						// Bit that can be read and write
-	    public int nb_input_bits;				// Bit that can only read
-	    public int nb_input_registers;			// Input Register 
-	    public int nb_registers;				// Holding Register
-	    public byte* tab_bits;
+	    public int nb_bits;                     // Bit that can be read and write
+        public int start_bits;
+        public int nb_input_bits;               // Bit that can only read
+        public int start_input_bits;
+        public int nb_input_registers;          // Input Register 
+        public int start_input_registers;
+        public int nb_registers;                // Holding Register
+        public int start_registers;
+        public byte* tab_bits;
 	    public byte* tab_input_bits;
 	    public ushort* tab_input_registers;
 	    public ushort* tab_registers;
@@ -297,7 +301,33 @@ namespace libmodbussharp
 			return res;
 		}
 
-		public int RegistersRWRead (int start) {
+        public int RegistersRead(int start)
+        {
+            return RegistersRead(start, 1);
+        }
+
+        unsafe public int RegistersRead(int start, int length)
+        {
+
+            int res = 0;
+
+            CheckMapping();
+
+            if (start + length > mapping->nb_input_registers)
+            {
+                Exception ex = new Exception("Trying to access outside defined memory space for input_registers");
+                throw ex;
+            }
+
+            res = ModbusPinvoke.modbus_read_registers(modbusContext, start, length, (short*) &mapping->tab_registers[start]);
+            if (res < 0)
+            {
+                CheckForModbusError();
+            }
+            return res;
+        }
+
+        public int RegistersRWRead (int start) {
 			return RegistersRWRead (start,1);
 		}
 		
@@ -716,100 +746,100 @@ namespace libmodbussharp
 		}
 
 		private class ModbusPinvoke {			
-			[DllImport("libmodbus.so", EntryPoint="modbus_new_tcp", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_new_tcp", SetLastError=true)]
 			static internal extern IntPtr ModbusNewTcp([MarshalAs(UnmanagedType.LPStr)] string target,int port);
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_tcp_listen", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_tcp_listen", SetLastError=true)]
 			static internal extern int ListenTcp(IntPtr context,int maxWaitingConnection);
 				
-			[DllImport("libmodbus.so", EntryPoint="modbus_tcp_accept", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_tcp_accept", SetLastError=true)]
 			static unsafe internal extern int AcceptTcp(IntPtr context,int* socket);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_mapping_new", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_mapping_new", SetLastError=true)]
 			unsafe static internal extern MODBUS_MAPPING* MappingNew(int NBit, int NInputBit, int NInputRegisters, int NInput);		
 	
-			[DllImport("libmodbus.so", EntryPoint="modbus_mapping_free", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_mapping_free", SetLastError=true)]
 			unsafe static internal extern void MappingDispose(MODBUS_MAPPING* map);		
 	
-			[DllImport("libmodbus.so", EntryPoint="modbus_connect", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_connect", SetLastError=true)]
 			unsafe static internal extern int Connect(IntPtr context);		
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_close", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_close", SetLastError=true)]
 			unsafe static internal extern void Close(IntPtr context);		
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_free", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_free", SetLastError=true)]
 			unsafe static internal extern void Free(IntPtr context);		
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_input_registers", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_read_input_registers", SetLastError=true)]
 			unsafe static internal extern int RegistersInputRead(IntPtr context, int start, int length, ushort* buffer);
 		
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_input_registers", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_read_input_registers", SetLastError=true)]
 			unsafe static internal extern int ReadInputRegistersSigned(IntPtr context, int start, int length, short* buffer);
 		
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_registers", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_read_registers", SetLastError=true)]
 			unsafe static internal extern int RegistersRWRead(IntPtr context, int start, int length, ushort* buffer);
 		
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_registers", SetLastError=true)]
-			unsafe static internal extern int ReadRegistersSigned(IntPtr context, int start, int length, short* buffer);
+			[DllImport("modbus.dll", EntryPoint="modbus_read_registers", SetLastError=true)]
+			unsafe static internal extern int modbus_read_registers(IntPtr context, int start, int length, short* buffer);
 		
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_register", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_register", SetLastError=true)]
 			unsafe static internal extern int WriteRegisterRW(IntPtr context, int addr, ushort val);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_register", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_register", SetLastError=true)]
 			unsafe static internal extern int WriteRegisterRW(IntPtr context, int addr, short val);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_registers", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_registers", SetLastError=true)]
 			unsafe static internal extern int RegistersRWWrite(IntPtr context, int addr, int length, ushort* buffer);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_and_read_registers", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_and_read_registers", SetLastError=true)]
 			unsafe static internal extern int RegistersRWWriteAndRead(IntPtr context, int readAddr, int readLength, ushort* readBuffer, int writeAddr, int writeLegth, ushort* writeBuffer);
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_bits", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_bits", SetLastError=true)]
 			unsafe static internal extern int BitsRWWrite(IntPtr context, int addr, int len, byte* buffer);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_write_bit", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_write_bit", SetLastError=true)]
 			unsafe static internal extern int WriteBit(IntPtr context, int addr, int status);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_bits", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_read_bits", SetLastError=true)]
 			unsafe static internal extern int BitsRWRead(IntPtr context, int addr, int len, byte* buffer);
 				
-			[DllImport("libmodbus.so", EntryPoint="modbus_read_input_bits", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_read_input_bits", SetLastError=true)]
 			unsafe static internal extern int BitsInputRead(IntPtr context, int addr, int len, byte* buffer);
 				
-			[DllImport("libmodbus.so", EntryPoint="modbus_set_debug", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_set_debug", SetLastError=true)]
 		    unsafe static internal extern void SetDebug(IntPtr context, bool debug);
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_receive", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_receive", SetLastError=true)]
 			unsafe static internal extern int Receive(IntPtr context, byte* req);
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_reply", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_reply", SetLastError=true)]
 			unsafe static internal extern int Reply(IntPtr context, byte* req, int len, IntPtr mapping);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_strerror", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_strerror", SetLastError=true)]
 			unsafe static internal extern IntPtr Error(int errno);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_set_slave", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_set_slave", SetLastError=true)]
 			unsafe static internal extern void SetSlave(IntPtr context, int slave);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_get_float", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_get_float", SetLastError=true)]
 			unsafe static internal extern float GetFloat(ushort* buffer);
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_set_float", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_set_float", SetLastError=true)]
 			unsafe static internal extern float SetFloat(float val, ushort* buffer);
 
-			//[DllImport("libmodbus.so", EntryPoint="modbus_rtu_set_time_rts_switch", SetLastError=true)]
+			//[DllImport("modbus.dll", EntryPoint="modbus_rtu_set_time_rts_switch", SetLastError=true)]
 			//unsafe static internal extern float SetResponseTimeout(IntPtr context, Int32 usec);
 						
- 			[DllImport("libmodbus.so", EntryPoint="modbus_rtu_set_rts", SetLastError=true)]
+ 			[DllImport("modbus.dll", EntryPoint="modbus_rtu_set_rts", SetLastError=true)]
 			unsafe static internal extern int RtuSetRts(IntPtr context, int flag); 
 			
-			[DllImport("libmodbus.so", EntryPoint="modbus_new_rtu", SetLastError=true)]
+			[DllImport("modbus.dll", EntryPoint="modbus_new_rtu", SetLastError=true)]
 			static internal extern IntPtr ModbusNewRtu([MarshalAs(UnmanagedType.LPStr)] string target, int baud, char pariry, int nBits, int stopBits);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_set_response_timeout")]
+			[DllImport("modbus.dll", EntryPoint="modbus_set_response_timeout")]
 			static internal extern IntPtr SetResponseTimeout(IntPtr context, IntPtr timeout);
 
-			[DllImport("libmodbus.so", EntryPoint="modbus_set_byte_timeout")]
+			[DllImport("modbus.dll", EntryPoint="modbus_set_byte_timeout")]
 			static internal extern IntPtr SetByteTimeout(IntPtr context, IntPtr timeout);
 
 		}
